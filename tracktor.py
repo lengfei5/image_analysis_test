@@ -65,7 +65,7 @@ def gray_otsu_thresh(frame, block_size = 31, offset = 25):
     return thresh
 
 
-def detect_and_draw_contours(frame, thresh, meas_last, meas_now, min_area = 0, max_area = 10000, min_circularity = 0.5):
+def detect_and_draw_contours(frame, thresh, meas_last, meas_now, min_area = 0, max_area = 10000, min_circularity = 0.1):
     """
     This function detects contours, thresholds them based on area and draws them.
     
@@ -130,6 +130,7 @@ def detect_and_draw_contours(frame, thresh, meas_last, meas_now, min_area = 0, m
             	cy = 0
             meas_now.append([cx,cy])
             i += 1
+            
     return final, contours, meas_last, meas_now
 
 def apply_k_means(contours, n_inds, meas_now):
