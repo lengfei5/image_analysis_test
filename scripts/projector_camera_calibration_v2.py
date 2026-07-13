@@ -258,7 +258,6 @@ class ParameterControl(QWidget):
 
 
 # ---------- main ----------
-
 def main():
     # camera
     try:
