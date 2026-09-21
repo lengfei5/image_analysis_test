@@ -24,17 +24,13 @@ from PyQt5.QtWidgets import (QApplication, QVBoxLayout, QHBoxLayout, QDesktopWid
                              QWidget, QLabel, QLineEdit, QSlider, QPushButton, QCheckBox)
 
 # Basler API: camera object, device factory, "keep only newest frame" grab strategy (low latency), and exception-on-timeout mode.
-from pypylon.pylon import (InstantCamera, TlFactory,
-                           GrabStrategy_LatestImageOnly, TimeoutHandling_ThrowException
+from pypylon.pylon import (InstantCamera, TlFactory, GrabStrategy_LatestImageOnly, TimeoutHandling_ThrowException)
+
 
 # Tries to import your project helpers (popups + camera config).
 # If utils.py is missing, defines simple fallbacks that just print to console, so the script still runs standalone.
-try:
-    from utils import show_info, show_error, setup_camera
-except ImportError:  # fallback if utils.py is unavailable
-    def show_info(msg): print(f'INFO: {msg}')
-    def show_error(msg): print(f'ERROR: {msg}')
-    def setup_camera(cam): pass
+from utils import show_info, show_error, setup_camera
+
 
 # Markers are placed 80 px in from the projector's corners.
 MARKER_MARGIN = 80     # marker inset from projector edges (px)
@@ -128,7 +124,6 @@ def calibrate_homography(cam, projwin, proj_w, proj_h):
 
 
 # ---------- Qt GUI ----------
-
 class MultiplesValidator(QValidator):
     def __init__(self, multiple, min_, max_):
         super().__init__()
@@ -259,26 +254,34 @@ class ParameterControl(QWidget):
 
 # ---------- main ----------
 def main():
-    # camera
+    # try to open the first Basler device 
     try:
         cam = InstantCamera(TlFactory.GetInstance().CreateFirstDevice())
     except Exception:
         show_error('Cannot access the camera. Make sure all other software that accesses it is closed.')
         return -1
+    
+    # open the camera, veryfies it and applies the project setting defined in utils.py
     cam.Open()
     if not cam.IsOpen():
         show_error('Cannot find camera.')
         return -1
     setup_camera(cam)
+
+    ## the following parts were added compared with Julian projector_sync.py
+    # disable auto exposure/gain (important — auto exposure could drift between calibration and use)
     try:
         cam.ExposureAuto.SetValue('Off')
         cam.GainAuto.SetValue('Off')
     except Exception:
         pass
+
+    # reset ROI to full sensor, stop grabbing for a clean restart
     set_roi(cam, cam.WidthMax.Value, cam.HeightMax.Value, 0, 0)
     cam.StopGrabbing()  # set_roi started grabbing; restart cleanly below
 
-    # windows
+    # control window sized to 80% of primary monitor height; if a second monitor exists, a fullscreen projection window is created on it; 
+    # otherwise projector features are disabled with a notice.
     monitors = get_monitors()
     ctrlwin = 'Control Window'
     cv2.namedWindow(ctrlwin, cv2.WINDOW_NORMAL)
@@ -311,8 +314,7 @@ def main():
     controller.show()
 
     cam.StartGrabbing(GrabStrategy_LatestImageOnly)
-    while (cam.IsGrabbing() and controller.isVisible()
-           and cv2.getWindowProperty(ctrlwin, cv2.WND_PROP_VISIBLE)):
+    while (cam.IsGrabbing() and controller.isVisible() and cv2.getWindowProperty(ctrlwin, cv2.WND_PROP_VISIBLE)):
 
         # handle GUI requests
         if controller.roi_changed:
